@@ -703,19 +703,280 @@ sequenceDiagram
 
 ---
 
-# Part 6: Build the Music Store API
+# Part 6: Build the Music Store API Step by Step
 
-Stop the server first:
+In this part, we will build the Music Store REST API slowly.
+
+We will **not** paste one huge server file at the beginning.
+
+Instead, we will build it like LEGO blocks:
 
 ```text
-CTRL + C
+Step 1  → Start a basic Express server
+Step 2  → Return JSON
+Step 3  → Connect SQLite
+Step 4  → Create a songs table
+Step 5  → Add sample songs
+Step 6  → Create GET routes
+Step 7  → Create POST route
+Step 8  → Create PUT route
+Step 9  → Create DELETE route
+Step 10 → Optional buy route
 ```
 
-Now replace `src/server.ts` with the full version below.
+This is easier for beginners because after each small step, we can run the server and see a result.
 
 ---
 
-## 6.1 Full server code
+## What are we building?
+
+We are building a simple **Music Store API**.
+
+The API will allow us to:
+
+```text
+View all songs
+Search songs by artist
+Search songs by title
+Find one song by ID
+Add a new song
+Update a song
+Delete a song
+Buy a song
+```
+
+---
+
+## Simple Architecture Diagram
+
+```mermaid
+flowchart LR
+    A[Client / Browser / Thunder Client] -->|HTTP Request| B[Node + Express Server]
+    B -->|SQL Query| C[(SQLite Database)]
+    C -->|Rows / Results| B
+    B -->|JSON Response| A
+```
+
+### Explanation
+
+The client sends a request.
+
+The Express server receives the request.
+
+The server talks to the SQLite database.
+
+The database sends results back to the server.
+
+The server sends JSON back to the client.
+
+---
+
+## REST API Request Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Express
+    participant SQLite
+
+    Client->>Express: GET /songs
+    Express->>SQLite: SELECT * FROM songs
+    SQLite-->>Express: Song records
+    Express-->>Client: JSON response
+```
+
+---
+
+# 6.1 Stop the server first
+
+Before editing the server code, stop the running server.
+
+In the terminal, press:
+
+```bash
+CTRL + C
+```
+
+Now open this file:
+
+```text
+src/server.ts
+```
+
+We will rebuild it slowly.
+
+---
+
+# 6.2 Step 1 — Create a basic Express server
+
+First, replace `src/server.ts` with this very simple code:
+
+```ts
+import express from 'express';
+
+const app = express();
+const PORT = 3000;
+
+app.get('/', (req, res) => {
+  res.send('Music Store API is running!');
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+```
+
+Now run the server:
+
+```bash
+npm run dev
+```
+
+Open this in the browser:
+
+```text
+http://localhost:3000
+```
+
+Expected output:
+
+```text
+Music Store API is running!
+```
+
+---
+
+## Teaching point
+
+This is our first Express route.
+
+```ts
+app.get('/', (req, res) => {
+  res.send('Music Store API is running!');
+});
+```
+
+Meaning:
+
+```text
+When the user visits /
+send back this message
+```
+
+---
+
+## Quick class question
+
+Ask students:
+
+```text
+What is the client here?
+What is the server here?
+What is the response?
+```
+
+Expected discussion:
+
+```text
+Client = Browser
+Server = Express app
+Response = Music Store API is running!
+```
+
+---
+
+# 6.3 Step 2 — Return JSON instead of plain text
+
+A Web API usually returns **JSON**, not HTML or plain text.
+
+Change the home route to this:
+
+```ts
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Music Store API is running!',
+    module: 'QHO540 Web Application Development'
+  });
+});
+```
+
+Your full code should now look like this:
+
+```ts
+import express from 'express';
+
+const app = express();
+const PORT = 3000;
+
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Music Store API is running!',
+    module: 'QHO540 Web Application Development'
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+```
+
+Now test again:
+
+```text
+http://localhost:3000
+```
+
+Expected output:
+
+```json
+{
+  "message": "Music Store API is running!",
+  "module": "QHO540 Web Application Development"
+}
+```
+
+---
+
+## Teaching point
+
+A normal website often returns HTML.
+
+A Web API usually returns JSON.
+
+```text
+Website response = HTML for humans
+API response = JSON for apps
+```
+
+---
+
+## Fun tech fact
+
+Most modern apps use APIs.
+
+When you open apps like Spotify, Uber, Netflix, Amazon, or a university portal, the front-end usually asks the back-end API for data.
+
+The data is commonly sent as JSON.
+
+---
+
+# 6.4 Step 3 — Add SQLite database connection
+
+Now we will connect our Express server to SQLite.
+
+At the top of `src/server.ts`, add this import:
+
+```ts
+import Database from 'better-sqlite3';
+```
+
+Then below the `PORT` line, add:
+
+```ts
+const db = new Database('music.db');
+```
+
+Your code should now look like this:
 
 ```ts
 import express from 'express';
@@ -724,13 +985,287 @@ import Database from 'better-sqlite3';
 const app = express();
 const PORT = 3000;
 
-// This allows Express to read JSON from request bodies
-app.use(express.json());
-
-// Create or open the SQLite database file
 const db = new Database('music.db');
 
-// TypeScript type for a song
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Music Store API is running!',
+    module: 'QHO540 Web Application Development'
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+```
+
+Run:
+
+```bash
+npm run dev
+```
+
+---
+
+## Teaching point
+
+This line creates or opens a SQLite database file:
+
+```ts
+const db = new Database('music.db');
+```
+
+If `music.db` does not exist, it will be created.
+
+---
+
+## Simple explanation
+
+SQLite is a small database stored as a file.
+
+```text
+music.db = our database file
+```
+
+It is good for learning because we do not need to install a full database server.
+
+---
+
+# 6.5 Step 4 — Create the songs table
+
+Now we will create a table to store songs.
+
+Add this code after the database connection:
+
+```ts
+db.exec(`
+  CREATE TABLE IF NOT EXISTS songs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    artist TEXT NOT NULL,
+    price REAL NOT NULL,
+    quantity_in_stock INTEGER NOT NULL
+  );
+`);
+```
+
+Your code should now look like this:
+
+```ts
+import express from 'express';
+import Database from 'better-sqlite3';
+
+const app = express();
+const PORT = 3000;
+
+const db = new Database('music.db');
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS songs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    artist TEXT NOT NULL,
+    price REAL NOT NULL,
+    quantity_in_stock INTEGER NOT NULL
+  );
+`);
+
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Music Store API is running!',
+    module: 'QHO540 Web Application Development'
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+```
+
+Run:
+
+```bash
+npm run dev
+```
+
+---
+
+## Teaching point
+
+This creates a table called `songs`.
+
+Each song will have:
+
+```text
+id
+title
+artist
+price
+quantity_in_stock
+```
+
+---
+
+## Table structure
+
+| Column            | Type    | Meaning                             |
+| ----------------- | ------- | ----------------------------------- |
+| id                | INTEGER | Unique song ID                      |
+| title             | TEXT    | Song title                          |
+| artist            | TEXT    | Artist name                         |
+| price             | REAL    | Song price                          |
+| quantity_in_stock | INTEGER | Number of physical copies available |
+
+---
+
+## Important explanation
+
+```sql
+CREATE TABLE IF NOT EXISTS
+```
+
+means:
+
+```text
+Create this table only if it does not already exist.
+```
+
+So the table will not be recreated every time we restart the server.
+
+---
+
+# 6.6 Step 5 — Add sample songs
+
+At the moment, the database has a table, but no data.
+
+Now add sample songs.
+
+Place this after the table creation code:
+
+```ts
+const songCount = db.prepare('SELECT COUNT(*) AS count FROM songs').get() as { count: number };
+
+if (songCount.count === 0) {
+  const insert = db.prepare(`
+    INSERT INTO songs (title, artist, price, quantity_in_stock)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  insert.run('Wonderwall', 'Oasis', 0.99, 10);
+  insert.run('Shape of You', 'Ed Sheeran', 1.29, 15);
+  insert.run('Blinding Lights', 'The Weeknd', 1.19, 8);
+  insert.run('Hello', 'Adele', 1.09, 12);
+}
+```
+
+---
+
+## What does this do?
+
+This line checks how many songs are currently in the table:
+
+```ts
+const songCount = db.prepare('SELECT COUNT(*) AS count FROM songs').get() as { count: number };
+```
+
+This condition checks whether the table is empty:
+
+```ts
+if (songCount.count === 0) {
+```
+
+If the table is empty, we insert sample songs.
+
+---
+
+## Why do we check if the table is empty?
+
+If we do not check this, every time we restart the server, the same songs will be inserted again.
+
+That would create duplicates.
+
+```text
+Without checking:
+Restart 1 → 4 songs
+Restart 2 → 8 songs
+Restart 3 → 12 songs
+```
+
+So we only insert starter data once.
+
+---
+
+# 6.7 Step 6 — Create a TypeScript interface for Song
+
+Now we will tell TypeScript what a song should look like.
+
+Add this before the routes:
+
+```ts
+interface Song {
+  id: number;
+  title: string;
+  artist: string;
+  price: number;
+  quantity_in_stock: number;
+}
+```
+
+---
+
+## Teaching point
+
+An interface is like a contract.
+
+It says:
+
+```text
+If something is a Song,
+it should have these properties.
+```
+
+```text
+id must be a number
+title must be a string
+artist must be a string
+price must be a number
+quantity_in_stock must be a number
+```
+
+---
+
+## Real-world analogy
+
+An interface is like a form.
+
+For example, a student registration form may require:
+
+```text
+student ID
+name
+course
+email
+```
+
+If required information is missing, the form is incomplete.
+
+Similarly, a `Song` should follow the structure we define.
+
+---
+
+# 6.8 Current code checkpoint
+
+At this stage, your `src/server.ts` should look like this:
+
+```ts
+import express from 'express';
+import Database from 'better-sqlite3';
+
+const app = express();
+const PORT = 3000;
+
+const db = new Database('music.db');
+
 interface Song {
   id: number;
   title: string;
@@ -739,7 +1274,1034 @@ interface Song {
   quantity_in_stock: number;
 }
 
-// Create tables if they do not already exist
+db.exec(`
+  CREATE TABLE IF NOT EXISTS songs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    artist TEXT NOT NULL,
+    price REAL NOT NULL,
+    quantity_in_stock INTEGER NOT NULL
+  );
+`);
+
+const songCount = db.prepare('SELECT COUNT(*) AS count FROM songs').get() as { count: number };
+
+if (songCount.count === 0) {
+  const insert = db.prepare(`
+    INSERT INTO songs (title, artist, price, quantity_in_stock)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  insert.run('Wonderwall', 'Oasis', 0.99, 10);
+  insert.run('Shape of You', 'Ed Sheeran', 1.29, 15);
+  insert.run('Blinding Lights', 'The Weeknd', 1.19, 8);
+  insert.run('Hello', 'Adele', 1.09, 12);
+}
+
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Music Store API is running!',
+    module: 'QHO540 Web Application Development'
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+```
+
+Run:
+
+```bash
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+Expected output:
+
+```json
+{
+  "message": "Music Store API is running!",
+  "module": "QHO540 Web Application Development"
+}
+```
+
+---
+
+# 6.9 Step 7 — GET all songs
+
+Now we will create our first real API endpoint.
+
+Add this route before `app.listen()`:
+
+```ts
+app.get('/songs', (req, res) => {
+  const stmt = db.prepare('SELECT * FROM songs');
+  const songs = stmt.all() as Song[];
+
+  res.json(songs);
+});
+```
+
+---
+
+## Full section with the new route
+
+```ts
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Music Store API is running!',
+    module: 'QHO540 Web Application Development'
+  });
+});
+
+app.get('/songs', (req, res) => {
+  const stmt = db.prepare('SELECT * FROM songs');
+  const songs = stmt.all() as Song[];
+
+  res.json(songs);
+});
+```
+
+Restart the server if needed:
+
+```bash
+npm run dev
+```
+
+Open in the browser:
+
+```text
+http://localhost:3000/songs
+```
+
+Expected output:
+
+```json
+[
+  {
+    "id": 1,
+    "title": "Wonderwall",
+    "artist": "Oasis",
+    "price": 0.99,
+    "quantity_in_stock": 10
+  },
+  {
+    "id": 2,
+    "title": "Shape of You",
+    "artist": "Ed Sheeran",
+    "price": 1.29,
+    "quantity_in_stock": 15
+  }
+]
+```
+
+The exact IDs may be different depending on your database.
+
+---
+
+## Teaching point
+
+This is the route:
+
+```ts
+app.get('/songs', (req, res) => {
+```
+
+It means:
+
+```text
+When the client sends GET /songs,
+run this function.
+```
+
+This line prepares the SQL:
+
+```ts
+const stmt = db.prepare('SELECT * FROM songs');
+```
+
+This line runs the SQL:
+
+```ts
+const songs = stmt.all() as Song[];
+```
+
+This line sends the result as JSON:
+
+```ts
+res.json(songs);
+```
+
+---
+
+## Request-response flow
+
+```mermaid
+flowchart TD
+    A[Browser requests /songs] --> B[Express route: app.get('/songs')]
+    B --> C[SQL: SELECT * FROM songs]
+    C --> D[SQLite returns song rows]
+    D --> E[Express sends JSON]
+    E --> F[Browser displays JSON]
+```
+
+---
+
+## Good moment to make them happy
+
+Tell students:
+
+```text
+You have now built your first database-powered REST API endpoint.
+```
+
+This is a big checkpoint.
+
+---
+
+# 6.10 Step 8 — GET songs by artist
+
+Now we will search songs by artist.
+
+Add this route before `app.listen()`:
+
+```ts
+app.get('/songs/artist/:artist', (req, res) => {
+  const stmt = db.prepare('SELECT * FROM songs WHERE artist = ?');
+  const songs = stmt.all(req.params.artist) as Song[];
+
+  res.json(songs);
+});
+```
+
+Test in browser:
+
+```text
+http://localhost:3000/songs/artist/Oasis
+```
+
+Expected output:
+
+```json
+[
+  {
+    "id": 1,
+    "title": "Wonderwall",
+    "artist": "Oasis",
+    "price": 0.99,
+    "quantity_in_stock": 10
+  }
+]
+```
+
+---
+
+## Teaching point
+
+In this route:
+
+```ts
+app.get('/songs/artist/:artist', ...)
+```
+
+`:artist` is a route parameter.
+
+It means this part of the URL is dynamic.
+
+Example:
+
+```text
+/songs/artist/Oasis
+```
+
+So:
+
+```ts
+req.params.artist
+```
+
+contains:
+
+```text
+Oasis
+```
+
+---
+
+## Mini diagram
+
+```text
+URL:
+http://localhost:3000/songs/artist/Oasis
+
+Express reads:
+artist = Oasis
+
+SQL becomes:
+SELECT * FROM songs WHERE artist = 'Oasis'
+```
+
+---
+
+## Very important security point
+
+We use this:
+
+```ts
+WHERE artist = ?
+```
+
+Instead of building SQL like this:
+
+```ts
+"SELECT * FROM songs WHERE artist = " + req.params.artist
+```
+
+The `?` is a placeholder.
+
+It helps protect the database from SQL injection attacks.
+
+---
+
+## Tech fact
+
+SQL injection is one of the most famous web security problems.
+
+Prepared statements help prevent this by separating the SQL command from the user input.
+
+---
+
+# 6.11 Step 9 — GET songs by title
+
+Now we will search songs by title.
+
+Add this route:
+
+```ts
+app.get('/songs/title/:title', (req, res) => {
+  const stmt = db.prepare('SELECT * FROM songs WHERE title = ?');
+  const songs = stmt.all(req.params.title) as Song[];
+
+  res.json(songs);
+});
+```
+
+Test:
+
+```text
+http://localhost:3000/songs/title/Wonderwall
+```
+
+Expected output:
+
+```json
+[
+  {
+    "id": 1,
+    "title": "Wonderwall",
+    "artist": "Oasis",
+    "price": 0.99,
+    "quantity_in_stock": 10
+  }
+]
+```
+
+---
+
+## Teaching point
+
+This is the same pattern as searching by artist.
+
+Only the field changes:
+
+```text
+artist search → WHERE artist = ?
+title search  → WHERE title = ?
+```
+
+---
+
+# 6.12 Step 10 — GET one song by ID
+
+Now we will search for one song using its ID.
+
+Add this route after the artist and title routes:
+
+```ts
+app.get('/songs/:id', (req, res) => {
+  const stmt = db.prepare('SELECT * FROM songs WHERE id = ?');
+  const song = stmt.get(req.params.id) as Song | undefined;
+
+  if (!song) {
+    return res.status(404).json({
+      error: 'Song not found'
+    });
+  }
+
+  res.json(song);
+});
+```
+
+Test a valid ID:
+
+```text
+http://localhost:3000/songs/1
+```
+
+Expected output:
+
+```json
+{
+  "id": 1,
+  "title": "Wonderwall",
+  "artist": "Oasis",
+  "price": 0.99,
+  "quantity_in_stock": 10
+}
+```
+
+Test an invalid ID:
+
+```text
+http://localhost:3000/songs/999
+```
+
+Expected output:
+
+```json
+{
+  "error": "Song not found"
+}
+```
+
+---
+
+## Teaching point
+
+Here we use:
+
+```ts
+stmt.get()
+```
+
+instead of:
+
+```ts
+stmt.all()
+```
+
+Simple rule:
+
+```text
+stmt.all() = many rows, returns an array
+stmt.get() = one row, returns one object
+stmt.run() = used for INSERT, UPDATE, DELETE
+```
+
+---
+
+## Why do we use 404?
+
+If a song does not exist, we send:
+
+```ts
+res.status(404)
+```
+
+404 means:
+
+```text
+Not Found
+```
+
+This is the correct REST response when a resource cannot be found.
+
+---
+
+# 6.13 Important route order warning
+
+This route:
+
+```ts
+app.get('/songs/:id', ...)
+```
+
+should come **after** these routes:
+
+```ts
+app.get('/songs/artist/:artist', ...)
+app.get('/songs/title/:title', ...)
+```
+
+Why?
+
+Because `/songs/:id` is very general.
+
+Express may treat anything after `/songs/` as an ID.
+
+So keep the route order like this:
+
+```text
+/songs
+/songs/artist/:artist
+/songs/title/:title
+/songs/:id
+```
+
+---
+
+# 6.14 Mini checkpoint
+
+At this point, students can test all these endpoints in the browser:
+
+```text
+GET http://localhost:3000/
+GET http://localhost:3000/songs
+GET http://localhost:3000/songs/artist/Oasis
+GET http://localhost:3000/songs/title/Wonderwall
+GET http://localhost:3000/songs/1
+GET http://localhost:3000/songs/999
+```
+
+---
+
+## Pause and ask students
+
+```text
+What does GET do?
+What does :artist mean?
+What is req.params.artist?
+What is JSON?
+What does 404 mean?
+What does SQLite do here?
+```
+
+---
+
+# 6.15 Step 11 — Add simple error handling with try/catch
+
+The code works, but real servers should handle errors.
+
+For example, change the `/songs` route to this:
+
+```ts
+app.get('/songs', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM songs');
+    const songs = stmt.all() as Song[];
+
+    res.json(songs);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+});
+```
+
+---
+
+## Teaching point
+
+```text
+try = try to run this code
+catch = if something breaks, handle the error
+```
+
+500 means:
+
+```text
+Internal Server Error
+```
+
+This usually means something went wrong on the server.
+
+---
+
+## Do we need to add try/catch to every route now?
+
+For learning, not immediately.
+
+First understand the route logic.
+
+Then slowly add error handling.
+
+---
+
+# 6.16 Step 12 — Allow Express to read JSON request bodies
+
+So far, we have used GET routes.
+
+Now we will create a POST route.
+
+POST is used to create new data.
+
+But first, we must tell Express to read JSON from the request body.
+
+Add this near the top, after creating the app:
+
+```ts
+app.use(express.json());
+```
+
+So the top part should look like this:
+
+```ts
+const app = express();
+const PORT = 3000;
+
+app.use(express.json());
+```
+
+---
+
+## Teaching point
+
+Without this line:
+
+```ts
+app.use(express.json());
+```
+
+Express cannot read JSON sent in the request body.
+
+---
+
+## GET vs POST
+
+```text
+GET  = retrieve data
+POST = create new data
+```
+
+Example:
+
+```text
+GET /songs       → show all songs
+POST /songs      → add a new song
+```
+
+---
+
+# 6.17 Step 13 — POST add a new song
+
+Add this route before `app.listen()`:
+
+```ts
+app.post('/songs', (req, res) => {
+  const { title, artist, price, quantity_in_stock } = req.body;
+
+  const stmt = db.prepare(`
+    INSERT INTO songs (title, artist, price, quantity_in_stock)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  const info = stmt.run(title, artist, price, quantity_in_stock);
+
+  res.status(201).json({
+    message: 'Song created',
+    id: info.lastInsertRowid
+  });
+});
+```
+
+---
+
+## Testing POST
+
+You cannot properly test POST by typing the URL in the browser.
+
+A browser address bar sends a GET request.
+
+For POST, use one of these tools:
+
+```text
+Thunder Client in VS Code
+RESTer
+Postman
+curl
+```
+
+For class, Thunder Client is usually the easiest inside VS Code.
+
+---
+
+## Thunder Client setup
+
+In VS Code:
+
+```text
+Extensions → Search Thunder Client → Install
+```
+
+Then open:
+
+```text
+Thunder Client → New Request
+```
+
+Use:
+
+```text
+Method: POST
+URL: http://localhost:3000/songs
+```
+
+Go to Body → JSON and enter:
+
+```json
+{
+  "title": "Perfect",
+  "artist": "Ed Sheeran",
+  "price": 1.25,
+  "quantity_in_stock": 20
+}
+```
+
+Click:
+
+```text
+Send
+```
+
+Expected response:
+
+```json
+{
+  "message": "Song created",
+  "id": 5
+}
+```
+
+Now test in the browser:
+
+```text
+http://localhost:3000/songs
+```
+
+You should see the new song in the list.
+
+---
+
+## Teaching point
+
+This line reads data from the request body:
+
+```ts
+const { title, artist, price, quantity_in_stock } = req.body;
+```
+
+This line inserts the song into the database:
+
+```ts
+const info = stmt.run(title, artist, price, quantity_in_stock);
+```
+
+This sends a success response:
+
+```ts
+res.status(201).json({
+  message: 'Song created',
+  id: info.lastInsertRowid
+});
+```
+
+201 means:
+
+```text
+Created
+```
+
+---
+
+# 6.18 Step 14 — Add simple validation
+
+The POST route works, but it currently trusts the user too much.
+
+What if the user sends incomplete data?
+
+For example:
+
+```json
+{
+  "title": "Bad Song"
+}
+```
+
+We should reject this.
+
+Replace the POST route with this improved version:
+
+```ts
+app.post('/songs', (req, res) => {
+  const { title, artist, price, quantity_in_stock } = req.body;
+
+  if (!title || !artist || typeof price !== 'number' || typeof quantity_in_stock !== 'number') {
+    return res.status(400).json({
+      error: 'title, artist, price and quantity_in_stock are required.'
+    });
+  }
+
+  const stmt = db.prepare(`
+    INSERT INTO songs (title, artist, price, quantity_in_stock)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  const info = stmt.run(title, artist, price, quantity_in_stock);
+
+  res.status(201).json({
+    message: 'Song created',
+    id: info.lastInsertRowid
+  });
+});
+```
+
+Now test with bad data:
+
+```json
+{
+  "title": "Bad Song"
+}
+```
+
+Expected response:
+
+```json
+{
+  "error": "title, artist, price and quantity_in_stock are required."
+}
+```
+
+---
+
+## Teaching point
+
+400 means:
+
+```text
+Bad Request
+```
+
+This means the client sent invalid or incomplete data.
+
+---
+
+# 6.19 Step 15 — PUT update a song
+
+PUT is used to update existing data.
+
+Add this route before `app.listen()`:
+
+```ts
+app.put('/songs/:id', (req, res) => {
+  const { price, quantity_in_stock } = req.body;
+
+  if (typeof price !== 'number' || typeof quantity_in_stock !== 'number') {
+    return res.status(400).json({
+      error: 'price and quantity_in_stock must be numbers.'
+    });
+  }
+
+  const stmt = db.prepare(`
+    UPDATE songs
+    SET price = ?, quantity_in_stock = ?
+    WHERE id = ?
+  `);
+
+  const info = stmt.run(price, quantity_in_stock, req.params.id);
+
+  if (info.changes === 1) {
+    res.json({
+      message: 'Song updated'
+    });
+  } else {
+    res.status(404).json({
+      error: 'Song not found'
+    });
+  }
+});
+```
+
+---
+
+## Testing PUT
+
+Use Thunder Client:
+
+```text
+Method: PUT
+URL: http://localhost:3000/songs/1
+```
+
+Body JSON:
+
+```json
+{
+  "price": 1.49,
+  "quantity_in_stock": 50
+}
+```
+
+Expected response:
+
+```json
+{
+  "message": "Song updated"
+}
+```
+
+Now check in the browser:
+
+```text
+http://localhost:3000/songs/1
+```
+
+You should see the updated price and quantity.
+
+---
+
+## Teaching point
+
+PUT updates existing data.
+
+```text
+POST = create new data
+PUT  = update existing data
+```
+
+This line tells us whether anything was updated:
+
+```ts
+info.changes
+```
+
+If one row changed, update was successful.
+
+If zero rows changed, the song ID was not found.
+
+---
+
+# 6.20 Step 16 — DELETE a song
+
+DELETE is used to remove data.
+
+Add this route before `app.listen()`:
+
+```ts
+app.delete('/songs/:id', (req, res) => {
+  const stmt = db.prepare('DELETE FROM songs WHERE id = ?');
+  const info = stmt.run(req.params.id);
+
+  if (info.changes === 1) {
+    res.json({
+      message: 'Song deleted'
+    });
+  } else {
+    res.status(404).json({
+      error: 'Song not found'
+    });
+  }
+});
+```
+
+---
+
+## Testing DELETE
+
+Use Thunder Client:
+
+```text
+Method: DELETE
+URL: http://localhost:3000/songs/5
+```
+
+Expected response:
+
+```json
+{
+  "message": "Song deleted"
+}
+```
+
+Now check:
+
+```text
+http://localhost:3000/songs
+```
+
+The deleted song should no longer appear.
+
+---
+
+## Teaching point
+
+DELETE usually uses the ID in the URL.
+
+```text
+DELETE /songs/5
+```
+
+means:
+
+```text
+Delete the song with ID 5
+```
+
+---
+
+# 6.21 GET, POST, PUT, DELETE Summary
+
+| Method | Purpose       | Example           | Meaning               |
+| ------ | ------------- | ----------------- | --------------------- |
+| GET    | Read data     | GET `/songs`      | Get all songs         |
+| GET    | Read one item | GET `/songs/1`    | Get song with ID 1    |
+| POST   | Create data   | POST `/songs`     | Add a new song        |
+| PUT    | Update data   | PUT `/songs/1`    | Update song with ID 1 |
+| DELETE | Delete data   | DELETE `/songs/1` | Delete song with ID 1 |
+
+---
+
+## Simple memory trick
+
+```text
+GET    = give me data
+POST   = create this
+PUT    = update this
+DELETE = remove this
+```
+
+---
+
+# 6.22 Step 17 — Optional challenge: Buy a song
+
+This route is slightly more advanced.
+
+Only do this if students are comfortable with GET, POST, PUT and DELETE.
+
+The goal:
+
+```text
+When a user buys a song:
+1. Check if the song exists
+2. Check if stock is available
+3. Reduce quantity_in_stock by 1
+4. Create an order record
+```
+
+---
+
+## First, create the orders table
+
+Update your `db.exec()` section to include this second table:
+
+```ts
 db.exec(`
   CREATE TABLE IF NOT EXISTS songs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -753,555 +2315,74 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     song_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(song_id) REFERENCES songs(id)
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 `);
+```
 
-// Seed starter data only if the table is empty
-const songCount = db.prepare('SELECT COUNT(*) AS count FROM songs').get() as { count: number };
+---
 
-if (songCount.count === 0) {
-  const insert = db.prepare(`
-    INSERT INTO songs (title, artist, price, quantity_in_stock)
-    VALUES (?, ?, ?, ?)
-  `);
+## Add the buy route
 
-  insert.run('Wonderwall', 'Oasis', 0.99, 10);
-  insert.run('Shape of You', 'Ed Sheeran', 1.29, 15);
-  insert.run('Blinding Lights', 'The Weeknd', 1.19, 8);
-  insert.run('Hello', 'Adele', 1.09, 12);
-  insert.run('Don\'t Look Back in Anger', 'Oasis', 0.99, 5);
-}
+Add this route before `app.listen()`:
 
-// Home route
-app.get('/', (req, res) => {
-  res.json({
-    message: 'QHO540 Music Store REST API',
-    endpoints: [
-      'GET /songs',
-      'GET /songs/artist/:artist',
-      'GET /songs/title/:title',
-      'GET /songs/search?artist=Oasis&title=Wonderwall',
-      'GET /songs/:id',
-      'POST /songs',
-      'PUT /songs/:id',
-      'DELETE /songs/:id',
-      'POST /songs/:id/buy'
-    ]
+```ts
+app.post('/songs/:id/buy', (req, res) => {
+  const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id) as Song | undefined;
+
+  if (!song) {
+    return res.status(404).json({
+      error: 'Song not found'
+    });
+  }
+
+  if (song.quantity_in_stock <= 0) {
+    return res.status(400).json({
+      error: 'Song is out of stock'
+    });
+  }
+
+  db.prepare(`
+    UPDATE songs
+    SET quantity_in_stock = quantity_in_stock - 1
+    WHERE id = ?
+  `).run(req.params.id);
+
+  const orderInfo = db.prepare(`
+    INSERT INTO orders (song_id, quantity)
+    VALUES (?, ?)
+  `).run(req.params.id, 1);
+
+  res.status(201).json({
+    message: 'Song purchased',
+    orderId: orderInfo.lastInsertRowid
   });
 });
-
-// GET all songs
-app.get('/songs', (req, res) => {
-  try {
-    const stmt = db.prepare('SELECT * FROM songs');
-    const results = stmt.all() as Song[];
-    res.json(results);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// GET songs by artist
-app.get('/songs/artist/:artist', (req, res) => {
-  try {
-    const stmt = db.prepare('SELECT * FROM songs WHERE artist = ?');
-    const results = stmt.all(req.params.artist) as Song[];
-    res.json(results);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// GET songs by title
-app.get('/songs/title/:title', (req, res) => {
-  try {
-    const stmt = db.prepare('SELECT * FROM songs WHERE title = ?');
-    const results = stmt.all(req.params.title) as Song[];
-    res.json(results);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// GET songs by artist AND title using query string
-// Example: /songs/search?artist=Oasis&title=Wonderwall
-app.get('/songs/search', (req, res) => {
-  try {
-    const artist = req.query.artist;
-    const title = req.query.title;
-
-    if (typeof artist !== 'string' || typeof title !== 'string') {
-      return res.status(400).json({
-        error: 'Please provide artist and title as query parameters.'
-      });
-    }
-
-    const stmt = db.prepare('SELECT * FROM songs WHERE artist = ? AND title = ?');
-    const results = stmt.all(artist, title) as Song[];
-    res.json(results);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// GET one song by ID
-// Important: this route should come after /songs/search, /songs/artist and /songs/title
-app.get('/songs/:id', (req, res) => {
-  try {
-    const stmt = db.prepare('SELECT * FROM songs WHERE id = ?');
-    const result = stmt.get(req.params.id) as Song | undefined;
-
-    if (!result) {
-      return res.status(404).json({ error: 'Song not found' });
-    }
-
-    res.json(result);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// POST create a new song
-app.post('/songs', (req, res) => {
-  try {
-    const { title, artist, price, quantity_in_stock } = req.body;
-
-    if (!title || !artist || typeof price !== 'number' || typeof quantity_in_stock !== 'number') {
-      return res.status(400).json({
-        error: 'title, artist, price and quantity_in_stock are required.'
-      });
-    }
-
-    const stmt = db.prepare(`
-      INSERT INTO songs (title, artist, price, quantity_in_stock)
-      VALUES (?, ?, ?, ?)
-    `);
-
-    const info = stmt.run(title, artist, price, quantity_in_stock);
-
-    res.status(201).json({
-      message: 'Song created successfully',
-      id: info.lastInsertRowid
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// PUT update price and quantity of a song
-app.put('/songs/:id', (req, res) => {
-  try {
-    const { price, quantity_in_stock } = req.body;
-
-    if (typeof price !== 'number' || typeof quantity_in_stock !== 'number') {
-      return res.status(400).json({
-        error: 'price and quantity_in_stock must be numbers.'
-      });
-    }
-
-    const stmt = db.prepare(`
-      UPDATE songs
-      SET price = ?, quantity_in_stock = ?
-      WHERE id = ?
-    `);
-
-    const info = stmt.run(price, quantity_in_stock, req.params.id);
-
-    if (info.changes === 1) {
-      res.json({ success: true, message: 'Song updated successfully' });
-    } else {
-      res.status(404).json({ error: 'Song not found' });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// DELETE a song
-app.delete('/songs/:id', (req, res) => {
-  try {
-    const stmt = db.prepare('DELETE FROM songs WHERE id = ?');
-    const info = stmt.run(req.params.id);
-
-    if (info.changes === 1) {
-      res.json({ success: true, message: 'Song deleted successfully' });
-    } else {
-      res.status(404).json({ error: 'Song not found' });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// POST buy one physical copy of a song
-app.post('/songs/:id/buy', (req, res) => {
-  try {
-    const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id) as Song | undefined;
-
-    if (!song) {
-      return res.status(404).json({ error: 'Song not found' });
-    }
-
-    if (song.quantity_in_stock <= 0) {
-      return res.status(400).json({ error: 'Song is out of stock' });
-    }
-
-    const updateStock = db.prepare(`
-      UPDATE songs
-      SET quantity_in_stock = quantity_in_stock - 1
-      WHERE id = ?
-    `);
-
-    const createOrder = db.prepare(`
-      INSERT INTO orders (song_id, quantity)
-      VALUES (?, ?)
-    `);
-
-    const transaction = db.transaction(() => {
-      updateStock.run(req.params.id);
-      const orderInfo = createOrder.run(req.params.id, 1);
-      return orderInfo.lastInsertRowid;
-    });
-
-    const orderId = transaction();
-
-    res.status(201).json({
-      success: true,
-      message: 'Song purchased successfully',
-      orderId
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
-});
 ```
 
 ---
 
-## 6.2 Check and run
+## Testing the buy route
 
-Check TypeScript:
-
-```bash
-npm run check
-```
-
-Run server:
-
-```bash
-npm run dev
-```
-
-Open browser:
+Use Thunder Client:
 
 ```text
-http://localhost:3000
+Method: POST
+URL: http://localhost:3000/songs/1/buy
 ```
 
-Then:
-
-```text
-http://localhost:3000/songs
-```
-
----
-
-# Part 7: Testing GET Endpoints in Browser
-
-GET requests are easy to test in the browser.
-
-## 7.1 Test all songs
-
-Open:
-
-```text
-http://localhost:3000/songs
-```
-
-Expected: JSON array of songs.
-
----
-
-## 7.2 Test songs by artist
-
-Open:
-
-```text
-http://localhost:3000/songs/artist/Oasis
-```
-
-Expected: Oasis songs.
-
----
-
-## 7.3 Test songs by title
-
-Open:
-
-```text
-http://localhost:3000/songs/title/Wonderwall
-```
-
-Expected: Wonderwall song.
-
----
-
-## 7.4 Test artist AND title
-
-Open:
-
-```text
-http://localhost:3000/songs/search?artist=Oasis&title=Wonderwall
-```
-
-Expected: songs where both artist and title match.
-
----
-
-## 7.5 Test song by ID
-
-Open:
-
-```text
-http://localhost:3000/songs/1
-```
-
-Expected: song with ID 1.
-
-Try a missing song:
-
-```text
-http://localhost:3000/songs/999
-```
-
-Expected:
-
-```json
-{
-  "error": "Song not found"
-}
-```
-
----
-
-# Part 8: Testing POST, PUT and DELETE
-
-## 8.1 Why browser is not enough
-
-When you type a URL in the browser, the browser normally sends a `GET` request.
-
-But for API testing, we also need:
-
-```text
-POST
-PUT
-DELETE
-```
-
-So students should use one of these:
-
-- Thunder Client extension in VS Code
-- RESTer browser extension
-- Postman
-- curl from terminal
-
-For university lab computers, Thunder Client or curl may be easier depending on what is installed.
-
----
-
-## 8.2 Recommended: Thunder Client in VS Code
-
-Install extension:
-
-```text
-VS Code → Extensions → Search Thunder Client → Install
-```
-
-Open Thunder Client:
-
-```text
-Left sidebar → Thunder Client → New Request
-```
-
----
-
-## 8.3 Test POST: Add a song
-
-Method:
-
-```text
-POST
-```
-
-URL:
-
-```text
-http://localhost:3000/songs
-```
-
-Headers:
-
-```text
-Content-Type: application/json
-```
-
-Body → JSON:
-
-```json
-{
-  "title": "Yellow",
-  "artist": "Coldplay",
-  "price": 1.25,
-  "quantity_in_stock": 20
-}
-```
+No body is needed for now.
 
 Expected response:
 
 ```json
 {
-  "message": "Song created successfully",
-  "id": 6
-}
-```
-
-Now test again:
-
-```text
-GET http://localhost:3000/songs
-```
-
-The new song should appear.
-
----
-
-## 8.4 Test PUT: Update price and stock
-
-Method:
-
-```text
-PUT
-```
-
-URL:
-
-```text
-http://localhost:3000/songs/1
-```
-
-Headers:
-
-```text
-Content-Type: application/json
-```
-
-Body:
-
-```json
-{
-  "price": 1.49,
-  "quantity_in_stock": 30
-}
-```
-
-Expected response:
-
-```json
-{
-  "success": true,
-  "message": "Song updated successfully"
-}
-```
-
-Check:
-
-```text
-GET http://localhost:3000/songs/1
-```
-
----
-
-## 8.5 Test DELETE: Delete a song
-
-Method:
-
-```text
-DELETE
-```
-
-URL:
-
-```text
-http://localhost:3000/songs/2
-```
-
-Expected response:
-
-```json
-{
-  "success": true,
-  "message": "Song deleted successfully"
-}
-```
-
-Check:
-
-```text
-GET http://localhost:3000/songs/2
-```
-
-Expected:
-
-```json
-{
-  "error": "Song not found"
-}
-```
-
----
-
-## 8.6 Test buy endpoint
-
-Method:
-
-```text
-POST
-```
-
-URL:
-
-```text
-http://localhost:3000/songs/1/buy
-```
-
-No body needed.
-
-Expected response:
-
-```json
-{
-  "success": true,
-  "message": "Song purchased successfully",
+  "message": "Song purchased",
   "orderId": 1
 }
 ```
 
-Then check the stock:
+Now check:
 
 ```text
 GET http://localhost:3000/songs/1
@@ -1311,377 +2392,226 @@ The `quantity_in_stock` should reduce by 1.
 
 ---
 
-# Part 9: curl Testing Option
+## Buy route flowchart
 
-If Thunder Client is not available, use terminal.
-
-## 9.1 GET all songs
-
-```bash
-curl http://localhost:3000/songs
+```mermaid
+flowchart TD
+    A[POST /songs/:id/buy] --> B{Does song exist?}
+    B -->|No| C[Return 404 Song not found]
+    B -->|Yes| D{Stock available?}
+    D -->|No| E[Return 400 Out of stock]
+    D -->|Yes| F[Reduce stock by 1]
+    F --> G[Create order]
+    G --> H[Return 201 Song purchased]
 ```
 
 ---
 
-## 9.2 POST create song
+# 6.23 Student practice tasks
 
-```bash
-curl -X POST http://localhost:3000/songs \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Yellow","artist":"Coldplay","price":1.25,"quantity_in_stock":20}'
-```
+After you demonstrate the main parts, ask students to complete these tasks.
 
 ---
 
-## 9.3 PUT update song
+## Task 1 — Add one more sample song
 
-```bash
-curl -X PUT http://localhost:3000/songs/1 \
-  -H "Content-Type: application/json" \
-  -d '{"price":1.49,"quantity_in_stock":30}'
-```
-
----
-
-## 9.4 DELETE song
-
-```bash
-curl -X DELETE http://localhost:3000/songs/2
-```
-
----
-
-## 9.5 Buy song
-
-```bash
-curl -X POST http://localhost:3000/songs/1/buy
-```
-
----
-
-# Part 10: Explain the Code Simply
-
-## 10.1 What does `express()` do?
+Add this inside the starter data section:
 
 ```ts
-const app = express();
+insert.run('Someone Like You', 'Adele', 1.15, 7);
 ```
 
-This creates the Express application.
-
-Teaching line:
-
-> `app` is our server application. We attach routes to it.
-
----
-
-## 10.2 What is a route?
-
-```ts
-app.get('/songs', (req, res) => {
-  res.json(results);
-});
-```
-
-A route connects:
+Then restart the server and check:
 
 ```text
-HTTP method + URL + function
-```
-
-Example:
-
-```text
-GET + /songs + return all songs
+http://localhost:3000/songs
 ```
 
 ---
 
-## 10.3 What are `req` and `res`?
-
-| Name | Meaning | Purpose |
-|---|---|---|
-| `req` | Request | Data coming from client |
-| `res` | Response | Data sent back to client |
-
-Example:
-
-```ts
-req.params.id
-```
-
-Gets the `id` from the URL.
-
-Example:
-
-```ts
-req.body.title
-```
-
-Gets `title` from JSON sent by the client.
-
-Example:
-
-```ts
-res.json(data)
-```
-
-Sends JSON back to the client.
-
----
-
-## 10.4 What does `app.use(express.json())` do?
-
-```ts
-app.use(express.json());
-```
-
-It allows Express to read JSON from the request body.
-
-Without it, this may not work:
-
-```ts
-req.body.title
-```
-
-Teaching line:
-
-> If your POST body is coming as undefined, check whether `app.use(express.json())` is included.
-
----
-
-## 10.5 What is a prepared statement?
-
-```ts
-const stmt = db.prepare('SELECT * FROM songs WHERE artist = ?');
-const results = stmt.all(req.params.artist);
-```
-
-The `?` is a placeholder.
-
-The real value is safely inserted later.
-
-### Security fact
-
-Prepared statements help protect against **SQL injection**.
-
-Bad approach:
-
-```ts
-const sql = "SELECT * FROM songs WHERE artist = '" + artist + "'";
-```
-
-Better approach:
-
-```ts
-const stmt = db.prepare('SELECT * FROM songs WHERE artist = ?');
-stmt.all(artist);
-```
-
-Teaching line:
-
-> Never build SQL by joining user input directly into a string.
-
----
-
-## 10.6 `.all()`, `.get()` and `.run()`
-
-| Method | Used for | Returns |
-|---|---|---|
-| `.all()` | SELECT many rows | Array |
-| `.get()` | SELECT one row | One object or undefined |
-| `.run()` | INSERT, UPDATE, DELETE | Info about changes |
-
-Example:
-
-```ts
-stmt.all()
-```
-
-Use when expecting many records.
-
-```ts
-stmt.get()
-```
-
-Use when expecting one record.
-
-```ts
-stmt.run()
-```
-
-Use when changing the database.
-
----
-
-# Part 11: Student Tasks
-
-## Task 1: Confirm project works
-
-Students must show:
-
-```text
-GET http://localhost:3000
-GET http://localhost:3000/songs
-```
-
-They should see JSON.
-
----
-
-## Task 2: Add one more sample song
-
-Add another song to the seed data:
-
-```ts
-insert.run('Bad Habits', 'Ed Sheeran', 1.15, 7);
-```
-
-Then delete `music.db` and restart the server so the seed runs again.
-
----
-
-## Task 3: Create a new GET endpoint
-
-Create:
-
-```text
-GET /songs/cheap/:maxPrice
-```
-
-It should return songs where the price is less than or equal to the given max price.
-
-Hint:
-
-```sql
-SELECT * FROM songs WHERE price <= ?
-```
+## Task 2 — Search for Adele
 
 Test:
 
 ```text
-http://localhost:3000/songs/cheap/1.00
+http://localhost:3000/songs/artist/Adele
+```
+
+Expected result:
+
+```text
+Only Adele songs should appear.
 ```
 
 ---
 
-## Task 4: Create a stock endpoint
+## Task 3 — Search for a song that does not exist
 
-Create:
-
-```text
-GET /songs/stock/low
-```
-
-It should return songs where:
+Test:
 
 ```text
-quantity_in_stock < 10
+http://localhost:3000/songs/999
 ```
 
----
-
-## Task 5: Improve validation
-
-In the `POST /songs` endpoint, block negative prices.
-
-Bad request example:
+Expected result:
 
 ```json
 {
-  "title": "Test Song",
-  "artist": "Test Artist",
-  "price": -1,
-  "quantity_in_stock": 5
-}
-```
-
-Expected response:
-
-```json
-{
-  "error": "Price cannot be negative"
+  "error": "Song not found"
 }
 ```
 
 ---
 
-## Task 6: Test errors properly
+## Task 4 — Add a new song using POST
 
-Students should intentionally test:
+Use Thunder Client:
 
 ```text
-GET /songs/999
-DELETE /songs/999
-PUT /songs/999
-POST /songs with missing fields
+POST http://localhost:3000/songs
 ```
 
-They should check that the API returns correct error messages and status codes.
+Body:
+
+```json
+{
+  "title": "Counting Stars",
+  "artist": "OneRepublic",
+  "price": 1.35,
+  "quantity_in_stock": 9
+}
+```
+
+Then check:
+
+```text
+GET http://localhost:3000/songs
+```
 
 ---
 
-# Part 12: Extension Challenge
+## Task 5 — Update the song price
 
-## Challenge 1: Add orders endpoint
+Use Thunder Client:
 
-Create:
+```text
+PUT http://localhost:3000/songs/1
+```
+
+Body:
+
+```json
+{
+  "price": 1.99,
+  "quantity_in_stock": 30
+}
+```
+
+Then check:
+
+```text
+GET http://localhost:3000/songs/1
+```
+
+---
+
+## Task 6 — Delete a song
+
+Use Thunder Client:
+
+```text
+DELETE http://localhost:3000/songs/2
+```
+
+Then check:
+
+```text
+GET http://localhost:3000/songs
+```
+
+---
+
+# 6.24 Extension challenges
+
+Give these to students who finish early.
+
+---
+
+## Challenge 1 — Search by artist and title
+
+Create this endpoint:
+
+```text
+GET /songs/search?artist=Oasis&title=Wonderwall
+```
+
+Starter code:
+
+```ts
+app.get('/songs/search', (req, res) => {
+  const artist = req.query.artist;
+  const title = req.query.title;
+
+  if (typeof artist !== 'string' || typeof title !== 'string') {
+    return res.status(400).json({
+      error: 'Please provide artist and title.'
+    });
+  }
+
+  const stmt = db.prepare('SELECT * FROM songs WHERE artist = ? AND title = ?');
+  const songs = stmt.all(artist, title) as Song[];
+
+  res.json(songs);
+});
+```
+
+Important:
+
+This route should be placed before:
+
+```ts
+app.get('/songs/:id', ...)
+```
+
+---
+
+## Challenge 2 — Add GET orders route
+
+Create an endpoint to view all orders:
 
 ```text
 GET /orders
 ```
 
-It should return all orders.
+Starter code:
 
-SQL:
-
-```sql
-SELECT * FROM orders
+```ts
+app.get('/orders', (req, res) => {
+  const orders = db.prepare('SELECT * FROM orders').all();
+  res.json(orders);
+});
 ```
 
 ---
 
-## Challenge 2: Show orders with song details
+## Challenge 3 — Improve validation
 
-Create:
+Improve the POST route so that:
 
 ```text
-GET /orders/details
-```
-
-It should return order details with song title and artist.
-
-SQL idea:
-
-```sql
-SELECT orders.id, songs.title, songs.artist, orders.quantity, orders.created_at
-FROM orders
-JOIN songs ON orders.song_id = songs.id
+price cannot be less than 0
+quantity_in_stock cannot be less than 0
+title cannot be empty
+artist cannot be empty
 ```
 
 ---
 
-## Challenge 3: Buy more than one quantity
+# 6.25 Common errors and fixes
 
-Currently, buying a song always buys quantity `1`.
+## Error 1 — Cannot find module express
 
-Improve it so the request body can send:
-
-```json
-{
-  "quantity": 3
-}
-```
-
-Then reduce stock by 3 and create an order with quantity 3.
-
----
-
-# Part 13: Common Errors and Fixes
-
-## Error 1: `Cannot find module 'express'`
-
-Fix:
+Install Express:
 
 ```bash
 npm install express
@@ -1690,9 +2620,9 @@ npm install -D @types/express
 
 ---
 
-## Error 2: `Cannot find module 'better-sqlite3'`
+## Error 2 — Cannot find module better-sqlite3
 
-Fix:
+Install better-sqlite3:
 
 ```bash
 npm install better-sqlite3
@@ -1701,331 +2631,131 @@ npm install -D @types/better-sqlite3
 
 ---
 
-## Error 3: Server already running on port 3000
+## Error 3 — Port already in use
 
-You may see:
+You may already have a server running.
 
-```text
-EADDRINUSE: address already in use :::3000
+Stop it with:
+
+```bash
+CTRL + C
 ```
 
-Fix:
+Then run again:
 
-1. Stop the old server using `CTRL + C`
-2. Or change the port:
-
-```ts
-const PORT = 3001;
+```bash
+npm run dev
 ```
 
 ---
 
-## Error 4: POST body is undefined
+## Error 4 — POST body is undefined
 
-Make sure this exists before routes:
+Make sure this line exists near the top:
 
 ```ts
 app.use(express.json());
 ```
 
-Also make sure the request header is:
+Without it, Express cannot read JSON from the request body.
+
+---
+
+## Error 5 — Browser cannot test POST, PUT or DELETE
+
+Typing a URL in the browser sends a GET request.
+
+Use:
 
 ```text
-Content-Type: application/json
+Thunder Client
+RESTer
+Postman
+curl
 ```
 
 ---
 
-## Error 5: Route order problem
+# 6.26 Final recap
 
-This route:
+By the end of this part, we have created a working REST API.
 
-```ts
-app.get('/songs/:id', ...)
-```
-
-should come after more specific routes like:
-
-```ts
-app.get('/songs/search', ...)
-app.get('/songs/artist/:artist', ...)
-app.get('/songs/title/:title', ...)
-```
-
-Why?
-
-Because Express checks routes from top to bottom.
-
-If `/songs/:id` appears too early, Express might treat `search` as an ID.
-
----
-
-## Error 6: No output after `npm run check`
-
-This is good.
+We used:
 
 ```text
-No output from TypeScript usually means no errors.
-```
-
-To run the code:
-
-```bash
-npm run dev
+Node.js to run JavaScript/TypeScript on the server
+Express to create API routes
+SQLite to store data
+better-sqlite3 to connect Node with SQLite
+JSON to send data back to the client
+HTTP methods to control what action happens
 ```
 
 ---
 
-# Part 14: Fun and Core Tech Facts
+## Final architecture
 
-## Fact 1: `localhost` means your own computer
+```mermaid
+flowchart TD
+    A[Client Tool: Browser / Thunder Client] --> B{HTTP Method}
 
-When you open:
+    B -->|GET| C[Read songs]
+    B -->|POST| D[Create song / Buy song]
+    B -->|PUT| E[Update song]
+    B -->|DELETE| F[Delete song]
+
+    C --> G[Express Route]
+    D --> G
+    E --> G
+    F --> G
+
+    G --> H[SQL using better-sqlite3]
+    H --> I[(music.db SQLite Database)]
+    I --> J[Result]
+    J --> K[JSON Response]
+    K --> A
+```
+
+---
+
+## What students should remember
 
 ```text
-http://localhost:3000
+GET    = read data
+POST   = create data
+PUT    = update data
+DELETE = remove data
 ```
-
-You are not visiting the internet.
-
-You are visiting a server running on your own machine.
-
-Teaching line:
-
-> localhost is your laptop talking to itself.
-
----
-
-## Fact 2: Browsers mostly test GET requests only
-
-When you type a URL into a browser, it sends a `GET` request.
-
-That is why we need tools like Thunder Client, RESTer or Postman for:
 
 ```text
-POST
-PUT
-DELETE
+Express route = URL + function
+SQLite = database file
+JSON = data format sent back to client
+TypeScript = safer JavaScript
 ```
 
 ---
 
-## Fact 3: JSON is used almost everywhere
+## Final confidence message
 
-JSON is used by:
+If you have reached this point, you have built a real REST API.
+
+This is the same basic idea behind many real-world systems:
 
 ```text
-Web apps
-Mobile apps
-APIs
-Cloud services
-AI tools
-Payment systems
-Maps
-Weather apps
-```
-
-Teaching line:
-
-> If students understand JSON, they understand how modern apps exchange data.
-
----
-
-## Fact 4: REST reuses existing web rules
-
-REST does not invent a new protocol.
-
-It uses existing HTTP features:
-
-```text
-GET
-POST
-PUT
-DELETE
-Status codes
-URLs
-Headers
-Bodies
-```
-
-Teaching line:
-
-> REST is basically good manners for designing APIs.
-
----
-
-## Fact 5: Prepared statements are a security feature
-
-Prepared statements are not just cleaner code.
-
-They help protect against SQL injection.
-
-SQL injection is when attackers try to send SQL code through user input.
-
-Teaching line:
-
-> Treat all user input as suspicious until validated.
-
----
-
-## Fact 6: TypeScript helps before the server runs
-
-TypeScript catches errors while coding.
-
-Example:
-
-```ts
-let price: number = 1.99;
-price = 'free';
-```
-
-TypeScript blocks this.
-
-Teaching line:
-
-> JavaScript may fail while running. TypeScript warns while writing.
-
----
-
-## Fact 7: APIs are the backbone of modern apps
-
-When students use apps like:
-
-```text
-Uber
-Amazon
-Netflix
-Spotify
-Instagram
+Music apps
+Food delivery apps
+Booking systems
 University portals
-Banking apps
+Shopping websites
+Banking dashboards
 ```
 
-They are constantly using APIs in the background.
-
-Teaching line:
-
-> A modern app is often just a nice interface talking to many APIs.
-
----
-
-# Part 15: Suggested Teaching Script
-
-## Opening explanation
-
-> Today we are going to build a real backend API. Before coding, remember the big idea: the browser or frontend is the client, Node and Express form the server, and SQLite stores the data. The client sends HTTP requests, the server responds with HTTP responses, and instead of returning HTML, our API will return JSON. This is useful because JSON can be used by a browser, mobile app, React app, or another system.
-
-## Before coding
-
-> We are not building a full website today. We are building the backend API that a website or React app could use later.
-
-## While showing GET
-
-> GET is used when we want to read data. It should not change the database.
-
-## While showing POST
-
-> POST is used when we want to create something new. That is why adding a song uses POST.
-
-## While showing PUT
-
-> PUT is used when we want to update an existing thing. We already have the song, but we are changing its price or stock.
-
-## While showing DELETE
-
-> DELETE is used when we want to remove something from the database.
-
-## While explaining status codes
-
-> The JSON body tells us the message, but the status code tells the client whether the request succeeded or failed.
-
----
-
-# Part 16: Final Recap for Students
+The scale may be bigger, but the core idea is the same:
 
 ```text
 Client sends request
-Server receives request
-Express route handles request
-Database query runs
+Server processes it
+Database stores or returns data
 Server sends JSON response
-Client displays or uses the data
 ```
-
-```mermaid
-flowchart LR
-    A[Client] --> B[HTTP Request]
-    B --> C[Express Route]
-    C --> D[SQLite Query]
-    D --> E[JSON Result]
-    E --> F[HTTP Response]
-    F --> A
-```
-
-## Final one-line summary
-
-> A REST API is a clean backend system that exposes data through URLs using HTTP methods and JSON responses.
-
----
-
-# Part 17: Submission / Evidence Checklist
-
-Students should be able to show:
-
-- Project folder created
-- `package.json` exists
-- `tsconfig.json` exists
-- `src/server.ts` exists
-- Server runs using `npm run dev`
-- TypeScript passes using `npm run check`
-- Browser can test GET endpoints
-- Thunder Client / curl can test POST, PUT and DELETE
-- Database file `music.db` is created
-- At least one student task completed
-
----
-
-# Part 18: Quick Command Summary
-
-```bash
-mkdir qho540-rest-api-seminar
-cd qho540-rest-api-seminar
-code .
-npm init -y
-npm install express better-sqlite3
-npm install -D typescript tsx @types/node @types/express @types/better-sqlite3
-mkdir src
-```
-
-Create:
-
-```text
-tsconfig.json
-src/server.ts
-```
-
-Run checks:
-
-```bash
-npm run check
-```
-
-Run server:
-
-```bash
-npm run dev
-```
-
-Test:
-
-```text
-http://localhost:3000
-http://localhost:3000/songs
-```
-
----
-
-# Part 19: What to say at the end
-
-> Today you built the backend part of a real web application. This is the same pattern used in many real systems: a frontend sends requests, a backend processes them, a database stores the data, and JSON carries the result back. Next time you use a website or mobile app, remember there are API requests happening behind almost every button click.
-
